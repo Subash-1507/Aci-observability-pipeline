@@ -1,0 +1,28 @@
+{
+  "name": "aci-observability-pipeline",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/azure-cli:1": {},
+    "ghcr.io/devcontainers/features/terraform:1": {
+      "version": "1.16.5",
+      "tflint": "latest"
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "portsAttributes": {
+    "8000": { "label": "order-api (local)", "onAutoForward": "notify" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "hashicorp.terraform",
+        "ms-azuretools.vscode-docker",
+        "redhat.vscode-yaml",
+        "github.vscode-github-actions"
+      ]
+    }
+  }
+}

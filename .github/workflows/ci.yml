@@ -1,0 +1,61 @@
+name: ci
+
+# Every pull request and push to main: scan the repo for misconfigurations and secrets.
+# Image, application and Terraform checks are added as the project grows.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Least privilege: read-only by default; jobs ask for more only where they upload results.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Actions are pinned to full commit SHAs (tag in the comment); Dependabot proposes updates.
+jobs:
+  checkov:
+    name: Checkov (misconfigurations and secrets)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write # upload SARIF to the Security tab
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Checkov
+        uses: bridgecrewio/checkov-action@c3e106d5f8f4253a6de5110efb41a080f83db294 # v12.3135.0
+        with:
+          directory: .
+          config_file: .checkov.yaml
+          output_format: cli,sarif
+          output_file_path: console,checkov.sarif
+
+      - name: Upload Checkov results
+        if: always() && hashFiles('checkov.sarif') != ''
+        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          sarif_file: checkov.sarif
+          category: checkov
+
+  gitleaks:
+    name: Gitleaks (secrets in git history)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read # lists the PR's commits to scan
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # scan every commit, not just the latest
+
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITLEAKS_ENABLE_COMMENTS: false # keeps this job read-only
