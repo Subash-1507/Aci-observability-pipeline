@@ -1,0 +1,10 @@
+# Weekly update proposals for the pinned GitHub Actions. Python and Docker ecosystems join in chapter 1.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
