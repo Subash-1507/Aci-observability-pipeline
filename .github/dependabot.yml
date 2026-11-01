@@ -1,4 +1,4 @@
-# Weekly update proposals for the pinned GitHub Actions. Python and Docker ecosystems join in chapter 1.
+# Weekly update proposals. I apply them in my own pull requests and close the bot's.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -8,3 +8,15 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+  - package-ecosystem: pip
+    directory: /app
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /app
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly

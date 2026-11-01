@@ -1,0 +1,43 @@
+# Local copy of the Azure Container Instances group: the same three containers, on this machine only.
+name: order-observability
+
+services:
+  order-api:
+    build: ./app
+    ports:
+      - "127.0.0.1:8000:8000" # loopback only
+    environment:
+      REDIS_HOST: redis
+      OTEL_SERVICE_NAME: order-api
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=local
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
+      OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE: delta
+      OTEL_METRIC_EXPORT_INTERVAL: "10000" # every 10 s locally, for quick feedback
+      OTEL_PYTHON_FASTAPI_EXCLUDED_URLS: "health" # health checks are noise: no traces for them
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    depends_on: [redis, otel-collector]
+
+  redis:
+    image: redis:8.10.3-alpine@sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537
+    command: ["redis-server", "--save", "", "--appendonly", "no"] # cache only: nothing written to disk
+    user: "999:999" # the image's redis user, so the start script never runs as root
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.164.0@sha256:340c9ca6a36617084c6661bdc4f0fe92b7cda5a805d61673ec8db375fddc522b
+    command: ["--config=/etc/otelcol-contrib/config.yaml"] # Compose replaces only the arguments, not the program
+    volumes:
+      - ./otel/collector-local.yaml:/etc/otelcol-contrib/config.yaml:ro
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]

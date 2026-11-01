@@ -1,0 +1,52 @@
+# Chapter 1: the full pipeline running locally, 2026-11-01
+
+## Containers (only the API is published, on loopback)
+SERVICE          STATE     PORTS
+order-api        running   127.0.0.1:8000->8000/tcp
+otel-collector   running   4317-4318/tcp, 55679/tcp
+redis            running   6379/tcp
+
+## Hardening checks
+API user id: 65532
+Write to /app: OSError: [Errno 30] Read-only file system: '/app/hacked'
+
+## Telemetry received by the Collector
+Spans by name:
+    164 Name           : GET /health http send
+     82 Name           : GET /health
+     26 Name           : POST /order/{item_id} http send
+     13 Name           : process_order
+     13 Name           : POST /order/{item_id}
+     10 Name           : INCRBY
+Metric: Name: orders.processed
+Log records with a trace ID: 13
+Health checks are excluded from tracing since OTEL_PYTHON_FASTAPI_EXCLUDED_URLS=health was set; the GET /health spans above were recorded before that. In the 60 s after the change: 2 health checks answered, 0 traced.
+
+## One failed order, followed from its log to its spans
+SeverityText: ERROR
+Body: Str(Payment gateway timeout for item laptop-fault after 1.25s)
+Trace ID: c3a03a591040d3ef772a175e97cc236c
+    Name           : process_order
+    Kind           : Internal
+    Start time     : 2026-11-01 08:26:03.767151616 +0000 UTC
+    End time       : 2026-11-01 08:26:05.033458066 +0000 UTC
+    Status code    : Error
+    Status message : HTTPException: 503: Payment gateway timeout
+    Name           : POST /order/{item_id} http send
+    Kind           : Internal
+    Start time     : 2026-11-01 08:26:05.033774384 +0000 UTC
+    End time       : 2026-11-01 08:26:05.033803028 +0000 UTC
+    Status code    : Error
+    Status message : 
+    Name           : POST /order/{item_id} http send
+    Kind           : Internal
+    Start time     : 2026-11-01 08:26:05.034414388 +0000 UTC
+    End time       : 2026-11-01 08:26:05.03443145 +0000 UTC
+    Status code    : Unset
+    Status message : 
+    Name           : POST /order/{item_id}
+    Kind           : Server
+    Start time     : 2026-11-01 08:26:03.766770423 +0000 UTC
+    End time       : 2026-11-01 08:26:05.034599273 +0000 UTC
+    Status code    : Error
+    Status message : 

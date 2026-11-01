@@ -31,8 +31,8 @@ This project builds that chain end to end, then triggers the incident on purpose
 
 | | Chapter | What happens | Evidence I will capture |
 |---|---|---|---|
-| ⬜ | **0. Foundations** | Repo, dev container, region decision, CI security gates | Green pipeline |
-| ⬜ | **1. Run it locally** | API, Redis and the Collector with Docker Compose; telemetry printed locally | Trace in the Collector output |
+| ✅ | **0. Foundations** | Repo, dev container, region decision, CI security gates | Green pipeline |
+| ✅ | **1. Run it locally** | API, Redis and the Collector with Docker Compose; telemetry printed locally | Trace in the Collector output |
 | ⬜ | **2. Instrumentation** | Traces, a business metric, logs linked to trace IDs, and a fault switch | Span, metric and log samples |
 | ⬜ | **3. Two vendors, one pipeline** | Export to New Relic and Datadog at the same time | The same trace in both tools |
 | ⬜ | **4. Azure with Terraform** | Budget alert, remote state, registry, managed identity, Container Instances group | Resource configuration |
@@ -40,6 +40,19 @@ This project builds that chain end to end, then triggers the incident on purpose
 | ⬜ | **6. Dashboards, SLO and alerts** | Traffic, a 99% availability SLO, a P95 latency alert | Dashboard and alert screenshots |
 | ⬜ | **7. Incident drill** | Inject faults, measure time to detect, follow alert to trace to log | Timeline of the drill |
 | ⬜ | **8. Cost and teardown** | Cost report, then delete everything | Cost report, empty resource group |
+
+## Run it yourself
+
+Everything runs locally with Docker Compose: the API, Redis and the OpenTelemetry Collector, with only the API published, on loopback.
+
+```bash
+docker compose up -d --build
+curl -X POST http://127.0.0.1:8000/order/laptop-1
+curl -X POST "http://127.0.0.1:8000/order/laptop-fault?simulate_fault=true"   # a slow, failing payment call
+docker compose logs otel-collector                                             # traces, metrics and logs
+```
+
+Following one failed order from its error log to its spans: [evidence 01](docs/evidence/01-local-pipeline.txt).
 
 ## Decisions
 
