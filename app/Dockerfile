@@ -2,12 +2,12 @@
 # Hardened API image: Chainguard Wolfi Python (rebuilt daily), base images pinned by digest.
 
 # ---- build stage: installs hash-locked dependencies into /tmp/deps as the image's non-root user
-FROM cgr.dev/chainguard/python:latest-dev@sha256:157a562dbc225a2a9039dbd8249cbf704202260ba27bf525f24e47a3a685050f AS build
+FROM cgr.dev/chainguard/python:latest-dev@sha256:8a5780972067cfba4592b10e786a889807ed876c1100f89410fd0ed4e398992c AS build
 COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir --require-hashes --only-binary=:all: --target /tmp/deps -r /tmp/requirements.txt
 
 # ---- runtime stage: no shell, no package manager, non-root; code owned by root so the app cannot change it
-FROM cgr.dev/chainguard/python:latest@sha256:35d6025b288eb1c40ae631db77ed6cdd26c6f51d898428d8fc9989db7f29e784
+FROM cgr.dev/chainguard/python:latest@sha256:60e3c0d33ab77e50ace0850ccdf6eaec825ce89dad9b1ec2b0300a2070892b05
 WORKDIR /app
 COPY --from=build /tmp/deps ./deps
 COPY src/ ./src/
