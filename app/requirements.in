@@ -1,0 +1,9 @@
+# Direct dependencies. requirements.txt is generated from this file with hashes:
+#   pip-compile --generate-hashes --strip-extras -o requirements.txt requirements.in
+fastapi
+uvicorn
+redis
+opentelemetry-distro
+opentelemetry-exporter-otlp-proto-http
+opentelemetry-instrumentation-fastapi
+opentelemetry-instrumentation-redis

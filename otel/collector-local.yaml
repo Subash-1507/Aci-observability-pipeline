@@ -1,0 +1,33 @@
+# Local Collector: receives OTLP from the API and prints everything to its own log (no vendors yet).
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318 # reachable only on the Compose network, never published to the host
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 400
+    spike_limit_mib: 100
+  batch:
+    timeout: 5s
+
+exporters:
+  debug:
+    verbosity: detailed
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug]
