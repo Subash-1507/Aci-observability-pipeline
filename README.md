@@ -33,7 +33,7 @@ This project builds that chain end to end, then triggers the incident on purpose
 |---|---|---|---|
 | ✅ | **0. Foundations** | Repo, dev container, region decision, CI security gates | Green pipeline |
 | ✅ | **1. Run it locally** | API, Redis and the Collector with Docker Compose; telemetry printed locally | Trace in the Collector output |
-| ⬜ | **2. Instrumentation** | Traces, a business metric, logs linked to trace IDs, and a fault switch | Span, metric and log samples |
+| ✅ | **2. Instrumentation** | Traces, a business metric, logs linked to trace IDs, and a fault switch | Span, metric and log samples |
 | ⬜ | **3. Two vendors, one pipeline** | Export to New Relic and Datadog at the same time | The same trace in both tools |
 | ⬜ | **4. Azure with Terraform** | Budget alert, remote state, registry, managed identity, Container Instances group | Resource configuration |
 | ⬜ | **5. CI/CD** | Build, scan and deploy with OIDC and an approval gate | Pipeline run |
@@ -53,6 +53,15 @@ docker compose logs otel-collector                                             #
 ```
 
 Following one failed order from its error log to its spans: [evidence 01](docs/evidence/01-local-pipeline.txt).
+
+The Collector also reports on itself, on loopback only:
+
+```bash
+curl http://127.0.0.1:13133/                                          # health
+curl -s http://127.0.0.1:8888/metrics | grep otelcol_exporter_sent    # telemetry sent, per signal
+```
+
+Chapter 2 adds the build version to every signal, stable HTTP metric names (`http.server.request.duration`, in seconds), removal of client IPs before export, and Collector health: [evidence 02](docs/evidence/02-instrumentation.txt).
 
 ## Decisions
 

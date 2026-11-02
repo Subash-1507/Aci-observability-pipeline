@@ -1,0 +1,33 @@
+# Chapter 2: instrumentation in depth, 2026-11-02
+
+## Every signal carries the build that produced it
+      8 deployment.environment: Str(local)
+      8 service.name: Str(order-api)
+      8 service.version: Str(eafe7b3)
+
+## RED metrics from one histogram (stable HTTP semantic conventions, OTEL_SEMCONV_STABILITY_OPT_IN=http)
+Metric: http.server.request.duration
+-> DataType: Histogram
+-> Unit: s
+Status codes recorded:
+     22 http.response.status_code: Int(200)
+      6 http.response.status_code: Int(503)
+Before the opt-in, the same data arrived as http.server.duration in milliseconds (deprecated names).
+
+## Privacy: client IPs are removed in the Collector before export
+Before the attributes/scrub processor: client.address (a Docker-network IP) was present on every server span.
+After: spans with client.address in this run: 0
+Deleted rather than hashed: an unsalted hash of an IPv4 address can be reversed by hashing all 2^32 addresses.
+
+## Watching the watcher: Collector health and self-metrics (loopback only)
+Health: {"status":"Server available"}
+otelcol_exporter_sent_log_records 23
+otelcol_exporter_sent_metric_points 77
+otelcol_exporter_sent_spans 112
+otelcol_receiver_accepted_log_records 23
+otelcol_receiver_accepted_metric_points 77
+otelcol_receiver_accepted_spans 112
+otelcol_receiver_refused_log_records 0
+otelcol_receiver_refused_metric_points 0
+otelcol_receiver_refused_spans 0
+Accepted equals sent and nothing is refused: no telemetry is lost.
