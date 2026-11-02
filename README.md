@@ -34,7 +34,7 @@ This project builds that chain end to end, then triggers the incident on purpose
 | ✅ | **0. Foundations** | Repo, dev container, region decision, CI security gates | Green pipeline |
 | ✅ | **1. Run it locally** | API, Redis and the Collector with Docker Compose; telemetry printed locally | Trace in the Collector output |
 | ✅ | **2. Instrumentation** | Traces, a business metric, logs linked to trace IDs, and a fault switch | Span, metric and log samples |
-| ⬜ | **3. Two vendors, one pipeline** | Export to New Relic and Datadog at the same time | The same trace in both tools |
+| ✅ | **3. Two vendors, one pipeline** | Export to New Relic and Datadog at the same time | The same trace in both tools |
 | ⬜ | **4. Azure with Terraform** | Budget alert, remote state, registry, managed identity, Container Instances group | Resource configuration |
 | ⬜ | **5. CI/CD** | Build, scan and deploy with OIDC and an approval gate | Pipeline run |
 | ⬜ | **6. Dashboards, SLO and alerts** | Traffic, a 99% availability SLO, a P95 latency alert | Dashboard and alert screenshots |
@@ -44,12 +44,14 @@ This project builds that chain end to end, then triggers the incident on purpose
 ## Run it yourself
 
 Everything runs locally with Docker Compose: the API, Redis and the OpenTelemetry Collector, with only the API published, on loopback.
+The Collector also forwards everything to New Relic and Datadog, so first copy `.env.example` to `.env` and add your own keys. The file is git-ignored and only the Collector container receives it.
 
 ```bash
+cp .env.example .env                                                           # add NEW_RELIC_LICENSE_KEY and DD_API_KEY
 docker compose up -d --build
 curl -X POST http://127.0.0.1:8000/order/laptop-1
 curl -X POST "http://127.0.0.1:8000/order/laptop-fault?simulate_fault=true"   # a slow, failing payment call
-docker compose logs otel-collector                                             # traces, metrics and logs
+docker compose logs otel-collector                                             # one summary line per batch
 ```
 
 Following one failed order from its error log to its spans: [evidence 01](docs/evidence/01-local-pipeline.txt).
@@ -62,6 +64,14 @@ curl -s http://127.0.0.1:8888/metrics | grep otelcol_exporter_sent    # telemetr
 ```
 
 Chapter 2 adds the build version to every signal, stable HTTP metric names (`http.server.request.duration`, in seconds), removal of client IPs before export, and Collector health: [evidence 02](docs/evidence/02-instrumentation.txt).
+
+Chapter 3 sends the same scrubbed data to **New Relic** and **Datadog** through one standard exporter type, OTLP over HTTP: only the address and the API-key header differ, and each vendor has its own queue. For Datadog's APM pages, the Collector also computes request rate, errors and duration from the spans. The same failed order, trace ID `…c4c2ed38819fb28d`, in both tools:
+
+| Datadog | New Relic |
+|---|---|
+| ![The failed order's trace in Datadog](docs/evidence/03/datadog-same-trace.png) | ![The same trace ID in New Relic](docs/evidence/03/newrelic-same-trace.png) |
+
+More numbers and screenshots: [evidence 03](docs/evidence/03-two-vendors.md).
 
 ## Decisions
 
