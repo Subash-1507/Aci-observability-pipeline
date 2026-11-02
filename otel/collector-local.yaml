@@ -1,4 +1,8 @@
-# Local Collector: receives OTLP from the API and prints everything to its own log (no vendors yet).
+# Local Collector: receives OTLP from the API, scrubs personal data, prints everything to its own log (no vendors yet).
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133 # liveness for whoever runs the Collector
+
 receivers:
   otlp:
     protocols:
@@ -10,6 +14,14 @@ processors:
     check_interval: 1s
     limit_mib: 400
     spike_limit_mib: 100
+  # Privacy: client IPs are personal data and must not leave for a vendor. Deleted, not hashed:
+  # an unsalted hash of an IPv4 address can be reversed by hashing all 2^32 addresses.
+  attributes/scrub:
+    actions:
+      - key: client.address
+        action: delete
+      - key: network.peer.address
+        action: delete
   batch:
     timeout: 5s
 
@@ -18,10 +30,20 @@ exporters:
     verbosity: detailed
 
 service:
+  extensions: [health_check]
+  telemetry:
+    metrics:
+      level: normal
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888 # the Collector's own metrics: accepted, sent and failed telemetry
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
+      processors: [memory_limiter, attributes/scrub, batch]
       exporters: [debug]
     metrics:
       receivers: [otlp]
@@ -29,5 +51,5 @@ service:
       exporters: [debug]
     logs:
       receivers: [otlp]
-      processors: [memory_limiter, batch]
+      processors: [memory_limiter, attributes/scrub, batch]
       exporters: [debug]
