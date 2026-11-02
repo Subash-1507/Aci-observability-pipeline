@@ -9,7 +9,7 @@ services:
     environment:
       REDIS_HOST: redis
       OTEL_SERVICE_NAME: order-api
-      OTEL_RESOURCE_ATTRIBUTES: deployment.environment=local,service.version=${APP_VERSION:-dev}
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment.name=local,service.version=${APP_VERSION:-dev}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
       OTEL_TRACES_EXPORTER: otlp
@@ -37,6 +37,7 @@ services:
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.164.0@sha256:340c9ca6a36617084c6661bdc4f0fe92b7cda5a805d61673ec8db375fddc522b
     command: ["--config=/etc/otelcol-contrib/config.yaml"] # Compose replaces only the arguments, not the program
+    env_file: .env # vendor API keys; only the Collector gets them, never the API
     ports:
       - "127.0.0.1:13133:13133" # health check, loopback only
       - "127.0.0.1:8888:8888" # Collector self-metrics, loopback only

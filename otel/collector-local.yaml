@@ -1,4 +1,5 @@
-# Local Collector: receives OTLP from the API, scrubs personal data, prints everything to its own log (no vendors yet).
+# Local Collector: receives OTLP from the API, scrubs personal data, then sends the same data to each vendor.
+# The debug exporter keeps a one-line summary per batch in the Collector's own log.
 extensions:
   health_check:
     endpoint: 0.0.0.0:13133 # liveness for whoever runs the Collector
@@ -24,10 +25,84 @@ processors:
         action: delete
   batch:
     timeout: 5s
+    send_batch_size: 512 # send early once this many items are waiting
+    send_batch_max_size: 1000 # hard cap per request: New Relic rejects payloads over 1 MB
+
+connectors:
+  # Datadog APM needs request rate, errors and duration (RED metrics) per service and endpoint.
+  # New Relic computes these itself from the spans; for Datadog the Collector computes them here.
+  span_metrics:
+    aggregation_temporality: AGGREGATION_TEMPORALITY_DELTA
+    add_resource_attributes: true
+    histogram:
+      exponential: {}
+      unit: s
+    # Datadog's recommended dimensions, kept in full: Datadog uses them to name services, operations,
+    # resources and peers. Attributes this app does not emit are simply skipped.
+    dimensions:
+      - name: deployment.environment.name
+      - name: service.version
+      - name: http.response.status_code
+      - name: container.id
+      - name: aws.ecs.launchtype
+      - name: aws.ecs.task.arn
+      - name: cloud.provider
+      - name: cloud.account.id
+      - name: host.id
+      - name: host.name
+      - name: k8s.node.name
+      - name: k8s.cluster.name
+      - name: azure.resourcegroup.name
+      - name: aws.s3.bucket
+      - name: db.namespace
+      - name: messaging.destination.name
+      - name: messaging.system
+      - name: server.address
+      - name: operation.name
+      - name: http.request.method
+      - name: http.method
+      - name: db.system
+      - name: messaging.operation
+      - name: rpc.system
+      - name: rpc.service
+      - name: faas.invoked_provider
+      - name: faas.invoked_name
+      - name: faas.trigger
+      - name: graphql.operation.type
+      - name: network.protocol.name
+      - name: resource.name
+      - name: http.route
+      - name: messaging.destination
+      - name: rpc.method
+      - name: graphql.operation.name
+      - name: db.statement
+      - name: db.query.text
 
 exporters:
   debug:
-    verbosity: detailed
+    verbosity: basic # one summary line per batch; the vendors now hold the detail
+  # New Relic, US region. Standard OTLP: only the address and the key header are vendor-specific.
+  otlp_http/newrelic:
+    endpoint: https://otlp.nr-data.net # https uses port 443
+    headers:
+      api-key: ${env:NEW_RELIC_LICENSE_KEY} # read from the container's environment, never written here
+    compression: zstd # New Relic's recommendation; smaller than the gzip default
+    sending_queue:
+      enabled: true # this vendor's own queue: if New Relic is slow or down, other exporters are not blocked
+    retry_on_failure:
+      enabled: true # retries with backoff on throttling and server errors before giving up
+  # Datadog through its OTLP intake (site from DD_SITE, here us5): the same exporter type as New Relic.
+  otlp_http/datadog:
+    endpoint: https://otlp.${env:DD_SITE}
+    headers:
+      dd-api-key: ${env:DD_API_KEY} # read from the container's environment, never written here
+      # turn resource attributes (service, environment, version) into Datadog metric tags
+      dd-otel-metric-config: '{"resource_attributes_as_tags": true, "instrumentation_scope_metadata_as_tags": true}'
+    compression: zstd # Datadog's recommendation
+    sending_queue:
+      enabled: true # Datadog's own queue, separate from New Relic's
+    retry_on_failure:
+      enabled: true
 
 service:
   extensions: [health_check]
@@ -44,12 +119,16 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, attributes/scrub, batch]
-      exporters: [debug]
+      exporters: [debug, otlp_http/newrelic, otlp_http/datadog, span_metrics]
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [debug]
+      exporters: [debug, otlp_http/newrelic, otlp_http/datadog]
+    # RED metrics computed from spans: Datadog only (New Relic builds its own from the spans)
+    metrics/span_metrics:
+      receivers: [span_metrics]
+      exporters: [otlp_http/datadog]
     logs:
       receivers: [otlp]
       processors: [memory_limiter, attributes/scrub, batch]
-      exporters: [debug]
+      exporters: [debug, otlp_http/newrelic, otlp_http/datadog]
