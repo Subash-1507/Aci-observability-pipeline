@@ -1,0 +1,122 @@
+name: deploy
+
+# Build, scan, push and deploy order-api to Azure Container Instances.
+# Signs in to Azure with OIDC: no stored password. The "azure" environment waits for a reviewer's approval.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "otel/**"
+      - "infra/main/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One change to the container group at a time (shared with aci-start and aci-stop); never cancel a half-done apply.
+concurrency:
+  group: aci-container-group
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build, push and deploy (Azure)
+    runs-on: ubuntu-latest
+    environment: azure
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write # the OIDC token that Azure exchanges for a short-lived access token
+    defaults:
+      run:
+        shell: bash # with -eo pipefail: a failure anywhere in a pipe fails the step
+    env:
+      ARM_USE_OIDC: "true"
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_VAR_new_relic_license_key: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
+      TF_VAR_datadog_api_key: ${{ secrets.DD_API_KEY }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Image tag from the commit
+        run: echo "TAG=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+      - name: Sign in to Azure (OIDC)
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.16.5
+          terraform_wrapper: false
+
+      - name: Terraform init (remote state, Entra ID sign-in)
+        working-directory: infra/main
+        env:
+          TFSTATE_STORAGE_ACCOUNT: ${{ secrets.TFSTATE_STORAGE_ACCOUNT }}
+        run: |
+          terraform init -no-color \
+            -backend-config="resource_group_name=rg-aciobs-tfstate" \
+            -backend-config="storage_account_name=$TFSTATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=main.tfstate" \
+            -backend-config="use_azuread_auth=true" \
+            -backend-config="use_oidc=true"
+
+      - name: Registry name (masked in the public log)
+        working-directory: infra/main
+        run: |
+          acr="$(terraform output -raw acr_name)"
+          echo "::add-mask::$acr"
+          echo "ACR=$acr" >> "$GITHUB_ENV"
+          echo "REGISTRY=$(terraform output -raw acr_login_server)" >> "$GITHUB_ENV"
+
+      - name: Build image
+        run: docker build --tag "$REGISTRY/order-api:$TAG" app
+
+      - name: Trivy gate (fail on fixable HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/order-api:${{ env.TAG }}
+          scanners: vuln
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          hide-progress: true
+          exit-code: "1"
+
+      - name: Push image
+        run: |
+          az acr login --name "$ACR"
+          docker push "$REGISTRY/order-api:$TAG" | tail -1
+
+      - name: Terraform plan
+        working-directory: infra/main
+        run: |
+          terraform plan -no-color -var "api_image_tag=$TAG" -out=deploy.tfplan > plan.log
+          grep -E 'will be|must be|^Plan:|^No changes' plan.log
+
+      - name: Terraform apply
+        working-directory: infra/main
+        run: terraform apply -no-color -auto-approve deploy.tfplan | grep -E '^Apply complete'
+
+      # A deploy always leaves the app running, even when nothing changed and the group had been stopped.
+      - name: Verify the container group
+        run: |
+          group=(-g rg-aciobs-app -n ci-aciobs-app)
+          if [ "$(az container show "${group[@]}" --query instanceView.state -o tsv)" = "Stopped" ]; then
+            az container start "${group[@]}"
+          fi
+          sleep 150 # past the API's 60 s probe delay and one load-generator summary
+          az container show "${group[@]}" --query "containers[].{name:name, state:instanceView.currentState.state, restarts:instanceView.restartCount}" -o table
+          running="$(az container show "${group[@]}" --query "length(containers[?instanceView.currentState.state=='Running'])" -o tsv)"
+          [ "$running" = "4" ] || { echo "::error::only $running of 4 containers are running"; exit 1; }
+          az container logs "${group[@]}" --container-name loadgen | tail -2
