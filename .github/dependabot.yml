@@ -21,6 +21,6 @@ updates:
     schedule:
       interval: weekly
   - package-ecosystem: terraform
-    directories: ["/infra/bootstrap", "/infra/main"]
+    directories: ["/infra/bootstrap", "/infra/main", "/infra/ci"]
     schedule:
       interval: weekly

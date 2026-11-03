@@ -58,7 +58,7 @@ resource "azurerm_container_group" "app" {
     # No commas in the command: ACI splits exec arguments at commas. timeout_seconds limits how long the check may take.
     liveness_probe {
       exec                  = ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
-      initial_delay_seconds = 30 # Python and OpenTelemetry need more than 10 s to start on 0.5 vCPU
+      initial_delay_seconds = 60 # the API needs a little over 30 s to start on 0.5 vCPU while the other containers start too
       period_seconds        = 30
       failure_threshold     = 3
       timeout_seconds       = 5
