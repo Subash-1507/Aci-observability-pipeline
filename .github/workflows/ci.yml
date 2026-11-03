@@ -58,6 +58,7 @@ jobs:
   image:
     name: Build, scan and SBOM (order-api)
     runs-on: ubuntu-latest
+    timeout-minutes: 20 # fail fast instead of waiting hours on a slow registry
     permissions:
       contents: read
       security-events: write # upload SARIF to the Security tab
@@ -67,8 +68,19 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Build image
-        run: docker build --tag "$IMAGE" app
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # Step results come from GitHub's Actions cache when nothing changed, so routine builds skip
+      # re-downloading the base images. Pull requests read main's cache but cannot write to it.
+      - name: Build image (layers cached in GitHub's Actions cache)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: app
+          tags: ${{ env.IMAGE }}
+          load: true # into the local Docker engine, for Trivy and the SBOM
+          provenance: false # the local image store keeps no attestations; the SBOM step records the contents
+          cache-from: type=gha,scope=order-api
+          cache-to: type=gha,mode=max,scope=order-api
 
       - name: Trivy gate (fail on fixable HIGH/CRITICAL)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
