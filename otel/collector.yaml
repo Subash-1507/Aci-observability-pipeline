@@ -1,4 +1,4 @@
-# Local Collector: receives OTLP from the API, scrubs personal data, then sends the same data to each vendor.
+# Collector, used by Docker Compose and by the Azure container group: receives OTLP from the API, scrubs personal data, then sends the same data to each vendor.
 # The debug exporter keeps a one-line summary per batch in the Collector's own log.
 extensions:
   health_check:
