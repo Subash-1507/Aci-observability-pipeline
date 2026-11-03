@@ -43,7 +43,7 @@ resource "azurerm_federated_identity_credential" "deploy" {
   user_assigned_identity_id = azurerm_user_assigned_identity.deploy.id
   issuer                    = local.github_issuer
   audience                  = local.github_audience
-  subject                   = "repo:${var.github_repository}:environment:azure"
+  subject                   = "${var.github_subject_prefix}:environment:azure"
 }
 
 # Pushes images and replaces the container group: the app resource group only.
@@ -75,7 +75,7 @@ resource "azurerm_federated_identity_credential" "power" {
   user_assigned_identity_id = azurerm_user_assigned_identity.power.id
   issuer                    = local.github_issuer
   audience                  = local.github_audience
-  subject                   = "repo:${var.github_repository}:environment:azure-power"
+  subject                   = "${var.github_subject_prefix}:environment:azure-power"
 }
 
 # A custom role with three permissions: see, start and stop container groups. Nothing else.
