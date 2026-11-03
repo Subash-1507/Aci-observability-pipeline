@@ -42,7 +42,7 @@ services:
       - "127.0.0.1:13133:13133" # health check, loopback only
       - "127.0.0.1:8888:8888" # Collector self-metrics, loopback only
     volumes:
-      - ./otel/collector-local.yaml:/etc/otelcol-contrib/config.yaml:ro
+      - ./otel/collector.yaml:/etc/otelcol-contrib/config.yaml:ro
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]

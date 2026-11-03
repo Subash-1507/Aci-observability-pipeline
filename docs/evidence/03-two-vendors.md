@@ -38,7 +38,7 @@ otelcol_exporter_sent_metric_points{exporter="otlp_http/newrelic",server_address
 ```
 
 - No `send_failed` series: neither vendor rejected anything.
-- 170 spans = 30 orders × 5 (request, 2 response-send spans, `process_order`, Redis `INCR`) + 5 faults × 4 (no Redis call).
+- 170 spans = 30 orders × 5 (request, 2 response-send spans, `process_order`, Redis `INCRBY`) + 5 faults × 4 (no Redis call).
 - Datadog's 18 extra metric points are rate, error and duration metrics computed from the spans by the `span_metrics` connector, for Datadog's APM pages only. New Relic builds its own from the spans.
 
 ## New Relic (US), queried after an identical run

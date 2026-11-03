@@ -1,9 +1,10 @@
 # Checkov runs against the whole repo in CI. Frameworks are added as the project grows
-# (terraform joins in chapter 4).
+# (terraform joined in chapter 4).
 # Every suppression must be inline, next to the code, with a reason.
 framework:
   - dockerfile
   - github_actions
   - secrets
+  - terraform
 compact: true
 quiet: true

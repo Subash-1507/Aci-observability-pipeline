@@ -35,7 +35,7 @@ This project builds that chain end to end, then triggers the incident on purpose
 | ✅ | **1. Run it locally** | API, Redis and the Collector with Docker Compose; telemetry printed locally | Trace in the Collector output |
 | ✅ | **2. Instrumentation** | Traces, a business metric, logs linked to trace IDs, and a fault switch | Span, metric and log samples |
 | ✅ | **3. Two vendors, one pipeline** | Export to New Relic and Datadog at the same time | The same trace in both tools |
-| ⬜ | **4. Azure with Terraform** | Budget alert, remote state, registry, managed identity, Container Instances group | Resource configuration |
+| ✅ | **4. Azure with Terraform** | Budget alert, remote state, registry, managed identity, Container Instances group | Resource configuration |
 | ⬜ | **5. CI/CD** | Build, scan and deploy with OIDC and an approval gate | Pipeline run |
 | ⬜ | **6. Dashboards, SLO and alerts** | Traffic, a 99% availability SLO, a P95 latency alert | Dashboard and alert screenshots |
 | ⬜ | **7. Incident drill** | Inject faults, measure time to detect, follow alert to trace to log | Timeline of the drill |
@@ -72,6 +72,22 @@ Chapter 3 sends the same scrubbed data to **New Relic** and **Datadog** through 
 | ![The failed order's trace in Datadog](docs/evidence/03/datadog-same-trace.png) | ![The same trace ID in New Relic](docs/evidence/03/newrelic-same-trace.png) |
 
 More numbers and screenshots: [evidence 03](docs/evidence/03-two-vendors.md).
+
+## Deploy it to Azure
+
+Chapter 4 runs the same containers in one **Azure Container Instances** group in Korea Central, built with Terraform: the API, Redis, the Collector and a small load generator that sends orders over `localhost`. The group has **no public IP**, so nothing on the internet can reach it. Images come from a private registry, pulled by a managed identity, so no registry password exists. The vendor keys are secure environment variables, and Terraform's state lives in a storage account that accepts only Entra ID sign-ins.
+
+```bash
+cd infra/bootstrap && terraform init && terraform apply                  # budget alert and state storage (local state)
+terraform output -raw backend_config > ../main/backend.hcl               # git-ignored: keeps the storage name out of the repo
+cd ../main && terraform init -backend-config=backend.hcl
+set -a && . ../../.env && set +a && export TF_VAR_new_relic_license_key="$NEW_RELIC_LICENSE_KEY" TF_VAR_datadog_api_key="$DD_API_KEY" TF_VAR_api_image_tag=<tag>
+terraform apply -target=azurerm_role_assignment.acr_pull                 # registry and pull identity first
+# push the API image and import Redis and the Collector (see evidence 04), then:
+terraform apply                                                          # the container group
+```
+
+Image pushes, the Checkov results, and two undocumented ACI health-probe behaviours I diagnosed: [evidence 04](docs/evidence/04-azure-terraform.md).
 
 ## Decisions
 
