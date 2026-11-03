@@ -1,7 +1,7 @@
-variable "github_repository" {
-  description = "The only GitHub repository allowed to sign in, exactly as GitHub names it: OIDC subjects are case-sensitive."
+variable "github_subject_prefix" {
+  description = "Start of the OIDC subject GitHub sends for this repository: owner and repository names plus their immutable numeric IDs, so a renamed or re-created repository cannot sign in. Check it with: gh api repos/Subash-1507/aci-observability-pipeline/actions/oidc/customization/sub"
   type        = string
-  default     = "Subash-1507/aci-observability-pipeline"
+  default     = "repo:Subash-1507@91477713/aci-observability-pipeline@1441545527"
 }
 
 variable "state_storage_account_name" {
