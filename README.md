@@ -36,7 +36,7 @@ This project builds that chain end to end, then triggers the incident on purpose
 | ✅ | **2. Instrumentation** | Traces, a business metric, logs linked to trace IDs, and a fault switch | Span, metric and log samples |
 | ✅ | **3. Two vendors, one pipeline** | Export to New Relic and Datadog at the same time | The same trace in both tools |
 | ✅ | **4. Azure with Terraform** | Budget alert, remote state, registry, managed identity, Container Instances group | Resource configuration |
-| ⬜ | **5. CI/CD** | Build, scan and deploy with OIDC and an approval gate | Pipeline run |
+| ✅ | **5. CI/CD** | Build, scan and deploy with OIDC and an approval gate | Pipeline run |
 | ⬜ | **6. Dashboards, SLO and alerts** | Traffic, a 99% availability SLO, a P95 latency alert | Dashboard and alert screenshots |
 | ⬜ | **7. Incident drill** | Inject faults, measure time to detect, follow alert to trace to log | Timeline of the drill |
 | ⬜ | **8. Cost and teardown** | Cost report, then delete everything | Cost report, empty resource group |
@@ -88,6 +88,10 @@ terraform apply                                                          # the c
 ```
 
 Image pushes, the Checkov results, and two undocumented ACI health-probe behaviours I diagnosed: [evidence 04](docs/evidence/04-azure-terraform.md).
+
+## Continuous deployment
+
+Since Chapter 5, every merge that changes the app, the Collector config or `infra/main` deploys itself: GitHub Actions builds the image, tags it with the commit, scans it with Trivy, pushes it and runs Terraform, once I approve the run in the `azure` environment. It signs in to Azure with OIDC, so no Azure password or key is stored anywhere, and its identity can change only the app's resource group. Separate **aci-start** and **aci-stop** workflows, signed in as an identity that can only start and stop the container group, keep the cost down between sessions: [evidence 05](docs/evidence/05-cicd-oidc.md).
 
 ## Decisions
 
