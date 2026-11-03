@@ -80,8 +80,18 @@ jobs:
           echo "ACR=$acr" >> "$GITHUB_ENV"
           echo "REGISTRY=$(terraform output -raw acr_login_server)" >> "$GITHUB_ENV"
 
-      - name: Build image
-        run: docker build --tag "$REGISTRY/order-api:$TAG" app
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # Reuses the cache that CI writes on main: no base-image download unless dependencies or base images changed.
+      - name: Build image (layers cached in GitHub's Actions cache)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: app
+          tags: ${{ env.REGISTRY }}/order-api:${{ env.TAG }}
+          load: true # into the local Docker engine, for Trivy and docker push
+          provenance: false # the local image store keeps no attestations
+          cache-from: type=gha,scope=order-api
+          cache-to: type=gha,mode=max,scope=order-api
 
       - name: Trivy gate (fail on fixable HIGH/CRITICAL)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
