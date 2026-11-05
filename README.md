@@ -37,7 +37,7 @@ This project builds that chain end to end, then triggers the incident on purpose
 | ✅ | **3. Two vendors, one pipeline** | Export to New Relic and Datadog at the same time | The same trace in both tools |
 | ✅ | **4. Azure with Terraform** | Budget alert, remote state, registry, managed identity, Container Instances group | Resource configuration |
 | ✅ | **5. CI/CD** | Build, scan and deploy with OIDC and an approval gate | Pipeline run |
-| ⬜ | **6. Dashboards, SLO and alerts** | Traffic, a 99% availability SLO, a P95 latency alert | Dashboard and alert screenshots |
+| ✅ | **6. Dashboards, SLO and alerts** | Traffic, a 99% availability SLO, a P95 latency alert | Dashboard and alert screenshots |
 | ⬜ | **7. Incident drill** | Inject faults, measure time to detect, follow alert to trace to log | Timeline of the drill |
 | ⬜ | **8. Cost and teardown** | Cost report, then delete everything | Cost report, empty resource group |
 
@@ -92,6 +92,25 @@ Image pushes, the Checkov results, and two undocumented ACI health-probe behavio
 ## Continuous deployment
 
 Since Chapter 5, every merge that changes the app, the Collector config or `infra/main` deploys itself: GitHub Actions builds the image, tags it with the commit, scans it with Trivy, pushes it and runs Terraform, once I approve the run in the `azure` environment. It signs in to Azure with OIDC, so no Azure password or key is stored anywhere, and its identity can change only the app's resource group. Separate **aci-start** and **aci-stop** workflows, signed in as an identity that can only start and stop the container group, keep the cost down between sessions: [evidence 05](docs/evidence/05-cicd-oidc.md).
+
+## Dashboards, SLO and alerts
+
+Since Chapter 6, the reliability settings are code too, in `infra/observability`: a 99% availability SLO over 7 days, an email alert when P95 latency stays above 800 ms for 5 minutes, and a dashboard, each in both New Relic and Datadog. I measured normal traffic first: P95 was about 5 ms, so the alert should only fire once more than 5% of orders hit the slow fault. I run this folder myself, so the pipeline never gets these admin keys.
+
+```bash
+cd infra/observability
+cp .env.example .env                                # add the keys, account ID and alert email; git-ignored
+terraform init -backend-config=../main/backend.hcl -backend-config=key=observability.tfstate
+( set -a; . ./.env; set +a; terraform apply )       # the keys exist only for this one command
+```
+
+New Relic emails a verification link to a new alert address, and it must be confirmed before alerts arrive.
+
+| New Relic | Datadog |
+|---|---|
+| ![The New Relic dashboard](docs/evidence/06/newrelic-dashboard.png) | ![The Datadog dashboard](docs/evidence/06/datadog-dashboard.png) |
+
+The baseline, the reasoning behind each setting and what is not proven yet: [evidence 06](docs/evidence/06-dashboards-slo-alerts.md).
 
 ## Decisions
 
