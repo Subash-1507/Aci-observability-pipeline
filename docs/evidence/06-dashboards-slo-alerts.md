@@ -31,7 +31,7 @@ Datadog metric:    P95 5.07 ms
 ```text
 Apply complete! Resources: 10 added, 0 changed, 0 destroyed.
 Availability 100% and error budget 100% in both vendors
-Datadog error budget: 57.8 requests (1% of about 5,780 in 7 days)
+Datadog error budget: 75.5 requests (1% of about 7,550 in 7 days)
 Alerts: New Relic 0 open issues, Datadog monitor OK
 Test notifications: email arrived from both vendors
 ```
