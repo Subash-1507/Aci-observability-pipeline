@@ -37,7 +37,7 @@ variable "loadgen_interval_seconds" {
 variable "loadgen_fault_percent" {
   description = "Share of orders that simulate a payment-gateway timeout: 0 normally, raised for the incident drill."
   type        = number
-  default     = 0
+  default     = 20 # Chapter 7 drill: a deliberate bad release. Revert this commit to recover.
 
   validation {
     condition     = var.loadgen_fault_percent >= 0 && var.loadgen_fault_percent <= 100
