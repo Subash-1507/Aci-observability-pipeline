@@ -38,7 +38,7 @@ This project builds that chain end to end, then triggers the incident on purpose
 | ✅ | **4. Azure with Terraform** | Budget alert, remote state, registry, managed identity, Container Instances group | Resource configuration |
 | ✅ | **5. CI/CD** | Build, scan and deploy with OIDC and an approval gate | Pipeline run |
 | ✅ | **6. Dashboards, SLO and alerts** | Traffic, a 99% availability SLO, a P95 latency alert | Dashboard and alert screenshots |
-| ⬜ | **7. Incident drill** | Inject faults, measure time to detect, follow alert to trace to log | Timeline of the drill |
+| ✅ | **7. Incident drill** | Inject faults, measure time to detect, follow alert to trace to log | Timeline of the drill |
 | ⬜ | **8. Cost and teardown** | Cost report, then delete everything | Cost report, empty resource group |
 
 ## Run it yourself
@@ -111,6 +111,16 @@ New Relic emails a verification link to a new alert address, and it must be conf
 | ![The New Relic dashboard](docs/evidence/06/newrelic-dashboard.png) | ![The Datadog dashboard](docs/evidence/06/datadog-dashboard.png) |
 
 The baseline, the reasoning behind each setting and what is not proven yet: [evidence 06](docs/evidence/06-dashboards-slo-alerts.md).
+
+## Incident drill
+
+In Chapter 7, I shipped a bad release on purpose: a change that made one order in five hit the API's simulated payment-gateway timeout, deployed through the normal approval-gated pipeline. Datadog alerted 1 min 41 s after the first failed order, and New Relic about 7 minutes after. Datadog linked its alert to the deployment, and in both tools I followed the alert to a slow trace and its log line. Reverting the change through the same pipeline fixed it, but the rollback waited almost 10 minutes for my approval, which is the biggest lesson.
+
+| Datadog: the alert names the deployment | New Relic: the issue, opened and closed |
+|---|---|
+| ![The Datadog alert, linked to the deployment](docs/evidence/07/datadog-alert-deployment.png) | ![The New Relic issue](docs/evidence/07/newrelic-issue.png) |
+
+The timeline, the measurements, why the two SLOs disagree, and six lessons: [evidence 07](docs/evidence/07-incident-drill.md).
 
 ## Decisions
 
